@@ -1,13 +1,23 @@
 ﻿using app.Domain.Interfaces;
 using app.Domain.Models;
 using app.Server.Models;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace app.Application.Services
 {
-	public class UserService(IUserRepository userRepository) : IUserService
+	public class UserService(IUserRepository userRepository, IMemoryCache memoryCache) : IUserService
 	{
 		public async Task<ResponseDto> GetUsersDataAsync()
 		{
+			const string cacheKey = "usersData";
+
+			var usersData = memoryCache.Get<ResponseDto>(cacheKey);
+
+			if (usersData != null)
+			{
+				return usersData;
+			}
+
 			var users = await userRepository.GetUsersAsync();
 
 			if (users == null)
@@ -15,12 +25,21 @@ namespace app.Application.Services
 				throw new InvalidOperationException();
 			}
 
-			return new ResponseDto
+			usersData = new ResponseDto
 			{
 				Users = users,
 				TopColours = CalculateColourFrequency(users),
 				Ages = CalculateAgesPlusTwenty(users)
 			};
+
+			var cacheEntryOptions = new MemoryCacheEntryOptions
+			{
+				AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(15)
+			};
+
+			memoryCache.Set(cacheKey, usersData, cacheEntryOptions);
+
+			return usersData;
 		}
 
 		//Calculate the frequency of each favorite colour in the list of users

@@ -9,11 +9,11 @@ namespace app.Server.Controllers
 	public class UserController(ILogger<UserController> logger, IUserService userService) : ControllerBase
 	{
 		[HttpGet(Name = "GetUser")]
-		public ResponseDto Get()
+		public async Task<ActionResult<ResponseDto>> Get()
 		{
 			try
 			{
-				var usersData = userService.GetUsersDataAsync().Result;
+				var usersData = await userService.GetUsersDataAsync();
 
 				return usersData;
 			}

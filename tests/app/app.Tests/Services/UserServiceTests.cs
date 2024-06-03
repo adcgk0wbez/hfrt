@@ -2,15 +2,65 @@
 using app.Domain.Interfaces;
 using app.Domain.Models;
 using app.Server.Models;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace app.Tests.Services
 {
 	public class UserServiceTests
 	{
-		private static List<UserEntity> UserData =>
-			new()
+		private readonly Mock<IUserRepository> _mockUserRepository = new();
+		private readonly MemoryCache _mockMemoryCache = new(new MemoryCacheOptions());
+
+		private UserService CreateUserService()
+		{
+			return new UserService(_mockUserRepository.Object, _mockMemoryCache);
+		}
+
+		[Fact]
+		async Task GetUsersDataAsync_ReturnsExpectedResult_WhenUsersExist()
+		{
+			//arrange
+			_mockUserRepository.Setup(repo => repo.GetUsersAsync()).ReturnsAsync(UserData);
+
+			var userService = CreateUserService();
+
+			//act
+			var result = await userService.GetUsersDataAsync();
+	
+			//assert
+			Assert.NotNull(result);
+
+			Assert.Equal(AgesPlusTwentyData.Count, result.Ages!.Count);
+			for (var i = 0; i < AgesPlusTwentyData.Count; i++)
 			{
+				Assert.Equal(AgesPlusTwentyData[i].UserId, result.Ages[i].UserId);
+				Assert.Equal(AgesPlusTwentyData[i].OriginalAge, result.Ages[i].OriginalAge);
+				Assert.Equal(AgesPlusTwentyData[i].AgePlusTwenty, result.Ages[i].AgePlusTwenty);
+			}
+
+			Assert.Equal(TopColoursData.Count, result.TopColours!.Count);
+			for (var i = 0; i < TopColoursData.Count; i++)
+			{
+				Assert.Equal(TopColoursData[i].Colour, result.TopColours[i].Colour);
+				Assert.Equal(TopColoursData[i].Count, result.TopColours[i].Count);
+			}
+		}
+	
+		[Fact]
+		async Task GetUsersDataAsync_ThrowsInvalidOperationException_WhenNoUsersExist()
+		{
+			//arrange
+			_mockUserRepository.Setup(repo => repo.GetUsersAsync()).ReturnsAsync((List<UserEntity>)null!);
+
+			var userService = CreateUserService();
+
+			//act
+			//assert
+			await Assert.ThrowsAsync<InvalidOperationException>(() => userService.GetUsersDataAsync());
+		}
+
+		private static List<UserEntity> UserData => new() {
 				new UserEntity
 				{
 					Id = Guid.Parse("000ba277-fd7d-477d-a22c-fb89a1824b9a"),
@@ -74,7 +124,7 @@ namespace app.Tests.Services
 					Dob = DateTime.Parse("1906-11-19T00:00:00"),
 					FavouriteColour = "Green"
 				}
-			};
+	};
 
 		private static List<AgePlusTwentyDto> AgesPlusTwentyData =>
 			new()
@@ -95,53 +145,5 @@ namespace app.Tests.Services
 				new TopColoursDto { Colour = "Blue", Count = 2 },
 				new TopColoursDto { Colour = "Red", Count = 2 }
 			};
-
-		[Fact]
-		async Task GetUsersDataAsync_ReturnsExpectedResult_WhenUsersExist()
-		{
-			//arrange
-			var mockUserRepository = new Mock<IUserRepository>();
-	
-			mockUserRepository.Setup(repo => repo.GetUsersAsync())
-				.ReturnsAsync(UserData);
-
-			var userService = new UserService(mockUserRepository.Object);
-
-			//act
-			var result = await userService.GetUsersDataAsync();
-	
-			//assert
-			Assert.NotNull(result);
-
-			Assert.Equal(AgesPlusTwentyData.Count, result.Ages!.Count);
-			for (var i = 0; i < AgesPlusTwentyData.Count; i++)
-			{
-				Assert.Equal(AgesPlusTwentyData[i].UserId, result.Ages[i].UserId);
-				Assert.Equal(AgesPlusTwentyData[i].OriginalAge, result.Ages[i].OriginalAge);
-				Assert.Equal(AgesPlusTwentyData[i].AgePlusTwenty, result.Ages[i].AgePlusTwenty);
-			}
-
-			Assert.Equal(TopColoursData.Count, result.TopColours!.Count);
-			for (var i = 0; i < TopColoursData.Count; i++)
-			{
-				Assert.Equal(TopColoursData[i].Colour, result.TopColours[i].Colour);
-				Assert.Equal(TopColoursData[i].Count, result.TopColours[i].Count);
-			}
-		}
-	
-		[Fact]
-		async Task GetUsersDataAsync_ThrowsInvalidOperationException_WhenNoUsersExist()
-		{
-			//arrange
-			var mockUserRepository = new Mock<IUserRepository>();
-			mockUserRepository.Setup(repo => repo.GetUsersAsync())
-				.ReturnsAsync((List<UserEntity>)null!);
-	
-			var userService = new UserService(mockUserRepository.Object);
-	
-			//act
-			//assert
-			await Assert.ThrowsAsync<InvalidOperationException>(() => userService.GetUsersDataAsync());
-		}
 	}
 }
